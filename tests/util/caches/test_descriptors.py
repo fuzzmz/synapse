@@ -292,7 +292,8 @@ class CachedListDescriptorTestCase(unittest.TestCase):
                 assert (
                     logcontext.LoggingContext.current_context().request == "c1"
                 )
-                yield async.sleep(0)
+                # we want this to behave like an asynchronous function
+                yield run_on_reactor()
                 assert (
                     logcontext.LoggingContext.current_context().request == "c1"
                 )
