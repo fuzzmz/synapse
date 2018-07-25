@@ -149,7 +149,7 @@ def notify_user_membership_change(client, host, port, user_id, room_id, change):
         port (int): port on master listening for HTTP replication.
         user_id (str)
         room_id (str)
-        change (str): Either "join" or "left"
+        change (str): Either "joined" or "left"
 
     Returns:
         Deferred
