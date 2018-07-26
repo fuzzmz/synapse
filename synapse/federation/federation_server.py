@@ -33,6 +33,9 @@ from synapse.federation.federation_base import FederationBase, event_from_pdu_js
 from synapse.federation.persistence import TransactionActions
 from synapse.federation.units import Edu, Transaction
 from synapse.http.endpoint import parse_server_name
+from synapse.replication.http.federation import (
+    get_federation_query_from_master, send_edu_to_master,
+)
 from synapse.types import get_domain_from_id
 from synapse.util import async
 from synapse.util.caches.response_cache import ResponseCache
@@ -748,6 +751,8 @@ class FederationHandlerRegistry(object):
         if edu_type in self.edu_handlers:
             raise KeyError("Already have an EDU handler for %s" % (edu_type,))
 
+        logger.info("Registering federation EDU handler for %r", edu_type)
+
         self.edu_handlers[edu_type] = handler
 
     def register_query_handler(self, query_type, handler):
@@ -765,6 +770,8 @@ class FederationHandlerRegistry(object):
             raise KeyError(
                 "Already have a Query handler for %s" % (query_type,)
             )
+
+        logger.info("Registering federation query handler for %r", query_type)
 
         self.query_handlers[query_type] = handler
 
@@ -788,3 +795,43 @@ class FederationHandlerRegistry(object):
             raise NotFoundError("No handler for Query type '%s'" % (query_type,))
 
         return handler(args)
+
+
+class ReplicationFederationHandlerRegistry(FederationHandlerRegistry):
+    def __init__(self, hs):
+        self.config = hs.config
+        self.http_client = hs.get_simple_http_client()
+        self.clock = hs.get_clock()
+
+        super(ReplicationFederationHandlerRegistry, self).__init__()
+
+    def on_edu(self, edu_type, origin, content):
+        handler = self.edu_handlers.get(edu_type)
+        if handler:
+            return super(ReplicationFederationHandlerRegistry, self).on_edu(
+                edu_type, origin, content,
+            )
+
+        return send_edu_to_master(
+                client=self.http_client,
+                clock=self.clock,
+                host=self.config.worker_replication_host,
+                port=self.config.worker_replication_http_port,
+                edu_type=edu_type,
+                origin=origin,
+                content=content,
+        )
+
+    def on_query(self, query_type, args):
+        handler = self.query_handlers.get(query_type)
+        if handler:
+            return handler(args)
+
+        return get_federation_query_from_master(
+                client=self.http_client,
+                clock=self.clock,
+                host=self.config.worker_replication_host,
+                port=self.config.worker_replication_http_port,
+                query_type=query_type,
+                args=args,
+        )
