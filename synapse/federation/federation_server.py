@@ -34,7 +34,8 @@ from synapse.federation.persistence import TransactionActions
 from synapse.federation.units import Edu, Transaction
 from synapse.http.endpoint import parse_server_name
 from synapse.replication.http.federation import (
-    get_federation_query_from_master, send_edu_to_master,
+    get_federation_query_from_master,
+    send_edu_to_master,
 )
 from synapse.types import get_domain_from_id
 from synapse.util import async
